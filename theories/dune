@@ -1,0 +1,6 @@
+(coq.theory
+ (name Reflection)
+ (package proof-by-refl)
+ (modules Misc.IsEven Misc.Monoid))
+
+(include_subdirs qualified)

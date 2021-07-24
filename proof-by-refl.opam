@@ -1,0 +1,17 @@
+synopsis:     "Proof by reflection with examples"
+description:  "Proof by reflection with examples"
+name:         "proof-by-refl"
+opam-version: "2.0"
+maintainer:   "ivvl82@gmail.com"
+authors:      "Vladimir Ivanov"
+homepage:     "https://github.com/vonavi/proof-by-refl"
+bug-reports:  "https://github.com/vonavi/proof-by-refl"
+dev-repo:     "git+https://github.com/vonavi/proof-by-refl"
+license:      "GPL 3"
+
+depends: [
+  "dune" { >= "2.5" }
+  "coq"  { >= "8.12" }
+]
+
+build: [ "dune" "build" "-p" name "-j" jobs ]
