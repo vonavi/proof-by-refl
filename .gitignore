@@ -1,2 +1,22 @@
 ## Dune build directory
 /_build/
+
+## Core latex/pdflatex auxiliary files:
+*.aux
+*.log
+*.out
+*.toc
+
+## Intermediate documents:
+*.pdf
+
+## Build tool auxiliary files:
+*.synctex.gz
+
+# beamer
+*.nav
+*.snm
+*.vrb
+
+# minted
+_minted*

@@ -1,0 +1,320 @@
+\documentclass{beamer}
+\usetheme{metropolis}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amssymb,amsmath}
+
+\usepackage{hyperref}
+\hypersetup{colorlinks,linkcolor=}
+
+\usepackage{minted}
+\usemintedstyle{tango}
+
+\usepackage{epigraph}
+\usepackage{ragged2e}
+
+\title{Proof by Reflection with Examples}
+\author{Vladimir Ivanov}
+\date{\today}
+
+\begin{document}
+\begin{frame}[plain,noframenumbering]
+  \maketitle
+\end{frame}
+
+\begin{frame}
+  \section{Proof by Reflection}
+  \setlength{\epigraphwidth}{\textwidth}
+  \epigraph{\justifying
+    The term \textit{reflection} applies because we will need to translate Gallina propositions into values of inductive types representing syntax, so that Gallina programs may analyze them, and translating such a term back to the original form is called \textit{reflecting} it.
+  }{Adam Chlipala,  \href{http://adam.chlipala.net/cpdt/html/Reflection.html}{Library Reflection}}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Evenness Checking}
+  Prove that particular natural number constants are even.
+\begin{minted}{coq}
+Inductive is_even : nat -> Prop :=
+| even_O : is_even O
+| even_SS : forall x, is_even x -> is_even (S (S x)).
+
+Theorem is_even_two : is_even 2.
+Proof. repeat constructor. Qed.
+
+Print is_even_two.
+(* is_even_two = even_SS 0 even_O *)
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{When Is Proof Slow?}
+\begin{minted}{coq}
+Goal is_even 9002.
+  Time repeat constructor.
+  (* 5.703 secs *)
+  Show Proof.
+  (* even_SS 9000 (even_SS 8998 ... ) *)
+Qed.
+
+Goal is_even (10*10*10*10*10*10*10*10*10).
+  cbv.
+  (* Stack overflow *)
+Abort.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Computational Reflection}
+  Expression language including \texttt{nat} literals and multiplication nodes.
+\begin{minted}{coq}
+Inductive expr :=
+| NatO : expr
+| NatS (x : expr) : expr
+| NatMul (x y : expr) : expr.
+\end{minted}
+  Tell what number our expression represents:
+\begin{minted}{coq}
+Fixpoint interp (t : expr) : nat :=
+  match t with
+  | NatO => O
+  | NatS x => S (interp x)
+  | NatMul x y => interp x * interp y
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Goal Reification}
+  Reify the goal into abstract syntactic representation:
+\begin{minted}{coq}
+Ltac reify term :=
+  lazymatch term with
+  | O => NatO
+  | S ?x => let rx := reify x in constr:(NatS rx)
+  | ?x * ?y => let rx := reify x in
+               let ry := reify y in
+               constr:(NatMul rx ry)
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Evenness Checker}
+\begin{minted}{coq}
+Fixpoint check_is_even_expr (t : expr) : bool :=
+  match t with
+  | NatO => true
+  | NatS x => negb (check_is_even_expr x)
+  | NatMul x y =>
+    orb (check_is_even_expr x) (check_is_even_expr y)
+  end.
+\end{minted}
+  Whenever the checker returns \texttt{true}, the represented number is even.
+\begin{minted}{coq}
+Theorem check_is_even_expr_sound (e : expr) :
+  check_is_even_expr e = true -> is_even (interp e).
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Reflective Automation}
+  Run the algorithm on the reified syntax:
+\begin{minted}{coq}
+Goal is_even (10*10*10*10*10*10*10*10*10).
+  match goal with
+  | [ |- is_even ?v ]
+    => let e := reify v in
+       refine (check_is_even_expr_sound e _)
+  end.
+  vm_compute. reflexivity.
+Qed.
+\end{minted}
+\end{frame}
+
+\begin{frame}
+  \section{Monoid}
+\end{frame}
+
+\begin{frame}[fragile]
+\begin{minted}{coq}
+Lemma trial : forall a b c d,
+    (a + b) + (c + d) = a + b + c + d.
+Proof.
+  intros. repeat rewrite Nat.add_assoc. reflexivity.
+Qed.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Expression Interpretation}
+\begin{minted}{coq}
+Inductive expr :=
+| Var : nat -> expr
+| Plus : expr -> expr -> expr.
+
+Fixpoint interp e :=
+  match e with
+  | Var x => x
+  | Plus a b => interp a + interp b
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Goal Reification}
+\begin{minted}{coq}
+Ltac reify e :=
+  match e with
+  | ?e1 + ?e2 => let r1 := reify e1 in
+                 let r2 := reify e2 in
+                 constr:(Plus r1 r2)
+  | _ => constr:(Var e)
+  end.
+
+Ltac matac :=
+  match goal with
+  | [ |- ?me1 = ?me2 ] => let r1 := reify me1 in
+                          let r2 := reify me2 in
+                          change (interp r1 = interp r2)
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Reflective Automation}
+  \vspace{-.5em}
+\begin{minted}{coq}
+Fixpoint flatten e :=
+  match e with
+  | Var x => x :: nil
+  | Plus a b => flatten a ++ flatten b
+  end.
+
+Fixpoint sum_list l :=
+  match l with
+  | nil => 0
+  | x :: r => x + sum_list r
+  end.
+
+Theorem main : forall e1 e2,
+    sum_list (flatten e1) = sum_list (flatten e2)
+    -> interp e1 = interp e2.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\begin{minted}{coq}
+Lemma trial_refl : forall a b c d,
+    (a + b) + (c + d) = a + b + c + d.
+Proof.
+  intros. matac. apply main. simpl. reflexivity.
+Qed.
+\end{minted}
+\end{frame}
+
+\begin{frame}\justifying
+  \frametitle{Commutative Monoid}
+  We base our overview on the problem of proving equality in a commutative monoid. For example, consider proving the following problem instance, where $\oplus$ is the plus operator in the monoid.
+  \begin{align*}
+    x \oplus 2 \oplus 3 \oplus 4 = 4 \oplus 3 \oplus 2 \oplus x
+  \end{align*}
+  We can now write a procedure (\texttt{Mcheck}) that determines whether the terms are equal by flattening each expression into a list and checking whether one list is a permutation of the other.
+\end{frame}
+
+\begin{frame}\justifying
+  \section{Quantifier Elimination}
+  Predicate logic is undecidable in the general case; However, a number of specific theories within predicate logic are in fact decidable. Their decidability is shown through \textit{quantifier elimination}. The idea behind quantifier elimination is to devise a method to transform any given proposition quantified with $\forall$ or $\exists$ into an equivalent one without quantifiers.
+\end{frame}
+
+\begin{frame}\justifying
+  \frametitle{Theory of Successor on the Natural Numbers}
+  Atomic formulae are equalities between terms, each of which is the application of the successor function $S$ some (known) number of times to either a variable or zero. For example:
+  \begin{align*}
+    S(S(S(x))) = S(S(S(S(O))))
+  \end{align*}
+  or, more concisely:
+  \begin{align*}
+    S^3(x) = S^4(O).
+  \end{align*}
+  Valid atomic formulas: $3 + x = 4$, $3 + x = 7 + y$.
+\end{frame}
+
+\begin{frame}
+  \frametitle{Decision Procedure}
+  Propositions demonstrating how decision procedure works:
+  \begin{align*}
+    \exists x. \exists y. &
+    \\
+    & 3 + x = 1 + y \land 8 = 4 + y
+    \\
+    \iff &
+    \\
+    & x = 2 \land y = 4
+  \end{align*}
+\end{frame}
+
+\begin{frame}[fragile]
+\begin{minted}{coq}
+Inductive base : Set :=
+| Zero : base
+| Var : nat -> base.
+
+Inductive term : Set := Succ : nat -> base -> term.
+\end{minted}
+
+\begin{minted}{coq}
+Definition base2nat (l : list nat) (b : base) : nat :=
+  match b with
+  | Zero => 0
+  | Var n => nth n l 0
+  end.
+
+Definition term2nat (l : list nat) (t : term) : nat :=
+  match t with Succ n b => n + base2nat l b end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]\justifying
+  \frametitle{Representation of Formulae}
+  A formula is formed from an atom, or from other propositions by way of the typical connectives and quantifiers.
+\begin{minted}{coq}
+Inductive atom : Set := Equal : term -> term -> atom.
+
+Inductive form : Set :=
+| FAlse : form
+| Atom : atom -> form
+| Or : form -> form -> form
+| And : form -> form -> form
+| Imp : form -> form -> form
+| Forall : form -> form
+| Exists : form -> form.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+\begin{minted}{coq}
+Definition atom2Prop (l : list nat) (a : atom) :=
+  match a with
+    Equal t1 t2 => term2nat l t1 = term2nat l t2
+  end.
+
+Fixpoint form2Prop (l : list nat) (f : form) : Prop :=
+  match f with
+  | FAlse => False
+  | Atom a => atom2Prop l a
+  | Or a b => form2Prop l a \/ form2Prop l b
+  | And a b => form2Prop l a /\ form2Prop l b
+  | Imp a b => form2Prop l a -> form2Prop l b
+  | Forall a => forall x : nat, form2Prop (x :: l) a
+  | Exists a => exists x : nat, form2Prop (x :: l) a
+  end.
+\end{minted}
+\end{frame}
+\begin{frame}
+  \begin{center}
+    {\Huge Thank you}
+  \end{center}
+\end{frame}
+
+\end{document}
