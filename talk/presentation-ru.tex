@@ -1,0 +1,274 @@
+\documentclass{beamer}
+\usetheme{metropolis}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian,english]{babel}
+\usepackage{amssymb,amsmath}
+
+\usepackage{hyperref}
+\hypersetup{colorlinks,linkcolor=}
+
+\usepackage{minted}
+\usemintedstyle{tango}
+
+\usepackage{epigraph}
+
+\sloppy
+\setbeamerfont{author}{size=\large}
+\setbeamerfont{institute}{size=\normalsize}
+
+\title{Автоматизация доказательств в Coq через отражение и овеществление}
+\author{Иванов Владимир}
+\institute{Huawei Technologies\\
+  Moscow Research Center\\
+  Advanced Software Technology Lab
+}
+\date{}
+
+\begin{document}
+\begin{frame}[plain,noframenumbering]
+  \maketitle
+\end{frame}
+
+\begin{frame}
+  \section{Вычислительное доказательство отражением}
+  \setlength{\epigraphwidth}{\textwidth}
+  \epigraph{
+    $\ldots$Термин ``отражение'' (reflection) применяется потому, что нам нужно будет преобразовать утверждения Gallina в значения индуктивных типов, представляющих синтаксис, чтобы программы Gallina могли их анализировать, и перевод такого термина обратно в исходную форму называется его отражением.
+  }{Adam Chlipala,  \href{http://adam.chlipala.net/cpdt/html/Reflection.html}{Library Reflection}}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Проверка четности}
+  Докажем, что определенные натуральные числовые константы четные.
+\begin{minted}{coq}
+Inductive is_even : nat -> Prop :=
+| even_O : is_even O
+| even_SS : forall x, is_even x -> is_even (S (S x)).
+
+Theorem is_even_two : is_even 2.
+Proof. repeat constructor. Qed.
+
+Print is_even_two.
+(* is_even_two = even_SS 0 even_O *)
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Когда доказальство медленное?}
+\begin{minted}{coq}
+Goal is_even 9002.
+  Time repeat constructor.
+  (* 5.703 secs *)
+  Show Proof.
+  (* even_SS 9000 (even_SS 8998 ... ) *)
+Qed.
+
+Goal is_even (10*10*10*10*10*10*10*10*10).
+  cbv.
+  (* Stack overflow *)
+Abort.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Вычислительное отражение}
+  Язык выражений, включающий натуральные числа \texttt{nat} и ноды с умножением.
+\begin{minted}{coq}
+Inductive expr :=
+| NatO : expr
+| NatS (x : expr) : expr
+| NatMul (x y : expr) : expr.
+\end{minted}
+  Представление (интерпретация, interpretation) чисел нашим выражением:
+\begin{minted}{coq}
+Fixpoint interp (t : expr) : nat :=
+  match t with
+  | NatO => O
+  | NatS x => S (interp x)
+  | NatMul x y => interp x * interp y
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Овеществевление}
+  Овеществление (реификация, reification) абстрактного числа в синтаксическом представление:
+\begin{minted}{coq}
+Ltac reify term :=
+  lazymatch term with
+  | O => NatO
+  | S ?x => let rx := reify x in constr:(NatS rx)
+  | ?x * ?y => let rx := reify x in
+               let ry := reify y in
+               constr:(NatMul rx ry)
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Проверка четности}
+\begin{minted}{coq}
+Fixpoint check_is_even_expr (t : expr) : bool :=
+  match t with
+  | NatO => true
+  | NatS x => negb (check_is_even_expr x)
+  | NatMul x y =>
+    orb (check_is_even_expr x) (check_is_even_expr y)
+  end.
+\end{minted}
+  Когда проверка возвращает истинно (\texttt{true}), то представленное число является четным:
+\begin{minted}{coq}
+Theorem check_is_even_expr_sound (e : expr) :
+  check_is_even_expr e = true -> is_even (interp e).
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Автоматизация доказательства отражением}
+  Запуск аглоритма с овеществленным синтаксисом:
+\begin{minted}{coq}
+Goal is_even (10*10*10*10*10*10*10*10*10).
+  match goal with
+  | [ |- is_even ?v ]
+    => let e := reify v in
+       refine (check_is_even_expr_sound e _)
+  end.
+  vm_compute. reflexivity.
+Qed.
+\end{minted}
+\end{frame}
+
+\begin{frame}
+  \section{Моноид}
+  Моноид --- это бинарная операция, которая удовлетворяет двум законам: операция должна быть ассоциативной и должен существовать нейтральный элемент (единица). Примерами моноида являются матричное произведение (не коммутативна).
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Пример суммы моноидов}
+\begin{minted}{coq}
+Lemma trial : forall a b c d,
+    (a + b) + (c + d) = a + b + c + d.
+Proof.
+  intros. repeat rewrite Nat.add_assoc. reflexivity.
+Qed.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Представление моноида}
+\begin{minted}{coq}
+Inductive expr :=
+| Var : nat -> expr
+| Plus : expr -> expr -> expr.
+
+Fixpoint interp e :=
+  match e with
+  | Var x => x
+  | Plus a b => interp a + interp b
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Овеществление}
+\begin{minted}{coq}
+Ltac reify e :=
+  match e with
+  | ?e1 + ?e2 => let r1 := reify e1 in
+                 let r2 := reify e2 in
+                 constr:(Plus r1 r2)
+  | _ => constr:(Var e)
+  end.
+
+Ltac matac :=
+  match goal with
+  | [ |- ?me1 = ?me2 ] => let r1 := reify me1 in
+                          let r2 := reify me2 in
+                          change (interp r1 = interp r2)
+  end.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Автоматизация отражением}
+  \vspace{-.5em}
+\begin{minted}{coq}
+Fixpoint flatten e :=
+  match e with
+  | Var x => x :: nil
+  | Plus a b => flatten a ++ flatten b
+  end.
+
+Fixpoint sum_list l :=
+  match l with
+  | nil => 0
+  | x :: r => x + sum_list r
+  end.
+
+Theorem main : forall e1 e2,
+    sum_list (flatten e1) = sum_list (flatten e2)
+    -> interp e1 = interp e2.
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Автоматизация доказательства отражением}
+\begin{minted}{coq}
+Lemma trial_refl : forall a b c d,
+    (a + b) + (c + d) = a + b + c + d.
+Proof.
+  intros. matac. apply main. simpl. reflexivity.
+Qed.
+\end{minted}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Коммутативный моноид}
+  Рассмотрим проблему доказательства равенства в случае коммутативного моноида. Например, рассмотрим следующий пример проблемы, где $\oplus$ --- бинарный оператор моноида.
+  \begin{align*}
+    x \oplus 2 \oplus 3 \oplus 4 = 4 \oplus 3 \oplus 2 \oplus x
+  \end{align*}
+  Для автоматизации доказательства отражением, нам понадобится процедура (\texttt{Mcheck}), определяющая равенство выражений, сводя каждое выражение в список и проверяя, является ли один список перестановкой другого.
+\end{frame}
+
+\begin{frame}
+  \section{Исключение кванторов}
+  Логика предикатов в общем случае неразрешима, однако, ряд конкретных теорий в рамках логики предикатов на самом деле разрешимы. Их разрешимость можно показать посредством \textit{исключения кванторов} (quantifier elimination). Идея подхода состоит в том, чтобы разработать способ преобразования любого заданного утверждения, квантированного с $\forall$ и $\exists$, в эквивалентное утверждение без кванторов.
+\end{frame}
+
+\begin{frame}
+  \frametitle{Теория следования в натуральных числах}
+  Атомарные формулы --- это равенства между членами, каждый из которых задан применением функции следования $S$ некоторое (известное) количество раз либо к переменной, либо к нулю.
+  \begin{align*}
+    S(S(S(x))) = S(S(S(S(O))))
+  \end{align*}
+  или, более кратко:
+  \begin{align*}
+    S^3(x) = S^4(O).
+  \end{align*}
+  Допустимые атомарные формулы: $3 + x = 4$, $3 + x = 7 + y$.
+\end{frame}
+
+\begin{frame}
+  \frametitle{Разрешимость}
+  Утверждения, демонстрирующие работу процедуры принятия решения:
+  \begin{align*}
+    \exists x. \exists y. &
+    \\
+    & 3 + x = 1 + y \land 8 = 4 + y
+    \\
+    \iff &
+    \\
+    & x = 2 \land y = 4
+  \end{align*}
+\end{frame}
+
+\begin{frame}
+  \begin{center}
+    {\Huge Спасибо}
+  \end{center}
+\end{frame}
+
+\end{document}
