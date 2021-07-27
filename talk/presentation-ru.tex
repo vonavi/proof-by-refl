@@ -7,7 +7,7 @@
 \usepackage{amssymb,amsmath}
 
 \usepackage{hyperref}
-\hypersetup{colorlinks,linkcolor=}
+\hypersetup{colorlinks,linkcolor=,urlcolor=blue}
 
 \usepackage{minted}
 \usemintedstyle{tango}
@@ -15,10 +15,9 @@
 \usepackage{epigraph}
 
 \sloppy
-\setbeamerfont{author}{size=\large}
-\setbeamerfont{institute}{size=\normalsize}
+\setbeamerfont{footnote}{size=\normalsize}
 
-\title{Автоматизация доказательств в Coq через отражение и овеществление}
+\title{Автоматизация доказательств в Coq отражением и овеществлением}
 \author{Иванов Владимир}
 \institute{Huawei Technologies\\
   Moscow Research Center\\
@@ -41,7 +40,7 @@
 
 \begin{frame}[fragile]
   \frametitle{Проверка четности}
-  Докажем, что определенные натуральные числовые константы четные.
+  Докажем, что определенные натуральные числовые константы четные\footnotemark.
 \begin{minted}{coq}
 Inductive is_even : nat -> Prop :=
 | even_O : is_even O
@@ -53,6 +52,9 @@ Proof. repeat constructor. Qed.
 Print is_even_two.
 (* is_even_two = even_SS 0 even_O *)
 \end{minted}
+  \vspace{1.5em}
+
+  \footnotetext{Gross \textit{et al.}, Reification by Parametricity: Fast Setup for Proof by Reflection, 2018.}
 \end{frame}
 
 \begin{frame}[fragile]
@@ -74,7 +76,8 @@ Abort.
 
 \begin{frame}[fragile]
   \frametitle{Вычислительное отражение}
-  Язык выражений, включающий натуральные числа \texttt{nat} и ноды с умножением.
+  \vspace{-.5em}
+  Язык выражений, включающий натуральные числа \texttt{nat} и ноды с умножением:
 \begin{minted}{coq}
 Inductive expr :=
 | NatO : expr
@@ -93,8 +96,8 @@ Fixpoint interp (t : expr) : nat :=
 \end{frame}
 
 \begin{frame}[fragile]
-  \frametitle{Овеществевление}
-  Овеществление (реификация, reification) абстрактного числа в синтаксическом представление:
+  \frametitle{Овеществление}
+  Овеществление (реификация, reification) числа в синтаксическом представление:
 \begin{minted}{coq}
 Ltac reify term :=
   lazymatch term with
@@ -118,7 +121,7 @@ Fixpoint check_is_even_expr (t : expr) : bool :=
     orb (check_is_even_expr x) (check_is_even_expr y)
   end.
 \end{minted}
-  Когда проверка возвращает истинно (\texttt{true}), то представленное число является четным:
+  Число является четным, если проверка возвращает ``истинно'':
 \begin{minted}{coq}
 Theorem check_is_even_expr_sound (e : expr) :
   check_is_even_expr e = true -> is_even (interp e).
@@ -127,7 +130,7 @@ Theorem check_is_even_expr_sound (e : expr) :
 
 \begin{frame}[fragile]
   \frametitle{Автоматизация доказательства отражением}
-  Запуск аглоритма с овеществленным синтаксисом:
+  Запуск алгоритма с овеществленным синтаксисом:
 \begin{minted}{coq}
 Goal is_even (10*10*10*10*10*10*10*10*10).
   match goal with
@@ -142,7 +145,7 @@ Qed.
 
 \begin{frame}
   \section{Моноид}
-  Моноид --- это бинарная операция, которая удовлетворяет двум законам: операция должна быть ассоциативной и должен существовать нейтральный элемент (единица). Примерами моноида являются матричное произведение (не коммутативна).
+  Моноид --- это бинарная операция, которая удовлетворяет двум законам: операция должна быть ассоциативной и должен существовать нейтральный элемент (единица). Примерами моноида являются матричное произведение (не коммутативно).
 \end{frame}
 
 \begin{frame}[fragile]
@@ -226,21 +229,25 @@ Qed.
 
 \begin{frame}
   \frametitle{Коммутативный моноид}
-  Рассмотрим проблему доказательства равенства в случае коммутативного моноида. Например, рассмотрим следующий пример проблемы, где $\oplus$ --- бинарный оператор моноида.
+  Рассмотрим проблему доказательства равенства в случае коммутативного моноида\footnotemark. Например, рассмотрим следующий пример проблемы, где $\oplus$ --- бинарный оператор моноида.
   \begin{align*}
     x \oplus 2 \oplus 3 \oplus 4 = 4 \oplus 3 \oplus 2 \oplus x
   \end{align*}
-  Для автоматизации доказательства отражением, нам понадобится процедура (\texttt{Mcheck}), определяющая равенство выражений, сводя каждое выражение в список и проверяя, является ли один список перестановкой другого.
+  Для автоматизации доказательства отражением нам понадобится процедура (\texttt{Mcheck}), определяющая равенство выражений, сводя каждое выражение в список и проверяя, является ли один список перестановкой другого.
+
+  \footnotetext{Malecha \& Bengtson, Extensible and Efficient Automation Through Reflective Tactics, 2016.}
 \end{frame}
 
 \begin{frame}
   \section{Исключение кванторов}
-  Логика предикатов в общем случае неразрешима, однако, ряд конкретных теорий в рамках логики предикатов на самом деле разрешимы. Их разрешимость можно показать посредством \textit{исключения кванторов} (quantifier elimination). Идея подхода состоит в том, чтобы разработать способ преобразования любого заданного утверждения, квантированного с $\forall$ и $\exists$, в эквивалентное утверждение без кванторов.
+  Логика предикатов в общем случае неразрешима, однако, ряд конкретных теорий в рамках логики предикатов на самом деле разрешимы\footnotemark. Их разрешимость можно показать посредством \textit{исключения кванторов} (quantifier elimination). Идея подхода состоит в том, чтобы разработать способ преобразования любого заданного утверждения, квантированного с $\forall$ и $\exists$, в эквивалентное утверждение без кванторов.
+
+  \footnotetext{\url{https://360wiki.ru/wiki/Quantifier_elimination}}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Теория следования в натуральных числах}
-  Атомарные формулы --- это равенства между членами, каждый из которых задан применением функции следования $S$ некоторое (известное) количество раз либо к переменной, либо к нулю.
+  \frametitle{Равенство натуральных чисел}
+  Рассмотрим равенство между членами, каждый из которых задан применением функции следования $S$ некоторое (известное) количество раз либо к переменной, либо к нулю\footnotemark:
   \begin{align*}
     S(S(S(x))) = S(S(S(S(O))))
   \end{align*}
@@ -249,26 +256,18 @@ Qed.
     S^3(x) = S^4(O).
   \end{align*}
   Допустимые атомарные формулы: $3 + x = 4$, $3 + x = 7 + y$.
+
+  \footnotetext{Pope, Formalizing Constructive Quantifier Elimination in Agda, 2018.}.
 \end{frame}
 
 \begin{frame}
-  \frametitle{Разрешимость}
-  Утверждения, демонстрирующие работу процедуры принятия решения:
-  \begin{align*}
-    \exists x. \exists y. &
-    \\
-    & 3 + x = 1 + y \land 8 = 4 + y
-    \\
-    \iff &
-    \\
-    & x = 2 \land y = 4
-  \end{align*}
-\end{frame}
-
-\begin{frame}
-  \begin{center}
-    {\Huge Спасибо}
-  \end{center}
+  \frametitle{Заключение}
+  \begin{itemize}
+  \item Для доказательства методом отображения (proof by reflection) мы выражаем задачу в индуктивных типах.
+  \item Реализуем функции интерпретации (interpret) и овеществления (reify), что позволяет доказать корректность отображения.
+  \item Вводим эвристики для преобразований над типами (проводим нормализацию).
+  \item Автоматизируем доказательство, вычисляя равенство нормализованных выражений.
+  \end{itemize}
 \end{frame}
 
 \end{document}
