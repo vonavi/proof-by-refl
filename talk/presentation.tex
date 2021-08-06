@@ -3,10 +3,10 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
-\usepackage{amssymb,amsmath}
+\usepackage{amssymb,amsmath,amsbsy}
 
 \usepackage{hyperref}
-\hypersetup{colorlinks,linkcolor=}
+\hypersetup{colorlinks,linkcolor=,urlcolor=blue}
 
 \usepackage{minted}
 \usemintedstyle{tango}
@@ -14,9 +14,15 @@
 \usepackage{epigraph}
 \usepackage{ragged2e}
 
-\title{Proof by Reflection with Examples}
+\setbeamerfont{footnote}{size=\normalsize}
+
+\title{Automatic Proving in Coq by Reflection and Reification}
 \author{Vladimir Ivanov}
-\date{\today}
+\institute{Huawei Technologies\\
+  Moscow Research Center\\
+  Advanced Software Technology Lab
+}
+\date{}
 
 \begin{document}
 \begin{frame}[plain,noframenumbering]
@@ -24,7 +30,7 @@
 \end{frame}
 
 \begin{frame}
-  \section{Proof by Reflection}
+  \section{Proof by Computational Reflection}
   \setlength{\epigraphwidth}{\textwidth}
   \epigraph{\justifying
     The term \textit{reflection} applies because we will need to translate Gallina propositions into values of inductive types representing syntax, so that Gallina programs may analyze them, and translating such a term back to the original form is called \textit{reflecting} it.
@@ -33,7 +39,7 @@
 
 \begin{frame}[fragile]
   \frametitle{Evenness Checking}
-  Prove that particular natural number constants are even.
+  Prove that particular natural number constants are even\footnotemark.
 \begin{minted}{coq}
 Inductive is_even : nat -> Prop :=
 | even_O : is_even O
@@ -45,10 +51,13 @@ Proof. repeat constructor. Qed.
 Print is_even_two.
 (* is_even_two = even_SS 0 even_O *)
 \end{minted}
+  \vspace{1.5em}
+
+  \footnotetext{Gross \textit{et al.}, Reification by Parametricity: Fast Setup for Proof by Reflection, 2018.}
 \end{frame}
 
 \begin{frame}[fragile]
-  \frametitle{When Is Proof Slow?}
+  \frametitle{When is Proof Slow?}
 \begin{minted}{coq}
 Goal is_even 9002.
   Time repeat constructor.
@@ -132,11 +141,18 @@ Qed.
 \end{minted}
 \end{frame}
 
-\begin{frame}
+\begin{frame}\justifying
   \section{Monoid}
+  A monoid is a set $M$ together with an associative binary operation $\ast: M \times M \to M$ with an identity element $\boldsymbol{1}_M \in M$; that is to say that for any $a, b, c \in M$, we have:
+  \begin{description}[leftmargin=0pt]
+  \item[Closure] $a \ast b \in M$;
+  \item[Associativity] $a \ast (b \ast c) = (a \ast b) \ast c$;
+  \item[Identity] $1_M \ast a = a \ast 1_M = a$.
+  \end{description}
 \end{frame}
 
 \begin{frame}[fragile]
+  \frametitle{Sum of Monoids}
 \begin{minted}{coq}
 Lemma trial : forall a b c d,
     (a + b) + (c + d) = a + b + c + d.
@@ -147,7 +163,7 @@ Qed.
 \end{frame}
 
 \begin{frame}[fragile]
-  \frametitle{Expression Interpretation}
+  \frametitle{Representation of Monoid}
 \begin{minted}{coq}
 Inductive expr :=
 | Var : nat -> expr
@@ -204,6 +220,7 @@ Theorem main : forall e1 e2,
 \end{frame}
 
 \begin{frame}[fragile]
+  \frametitle{Reflective Automation}
 \begin{minted}{coq}
 Lemma trial_refl : forall a b c d,
     (a + b) + (c + d) = a + b + c + d.
@@ -215,21 +232,25 @@ Qed.
 
 \begin{frame}\justifying
   \frametitle{Commutative Monoid}
-  We base our overview on the problem of proving equality in a commutative monoid. For example, consider proving the following problem instance, where $\oplus$ is the plus operator in the monoid.
+  We base our overview on the problem of proving equality in a commutative monoid\footnotemark. For example, consider proving the following problem instance, where $\oplus$ is the plus operator in the monoid.
   \begin{align*}
     x \oplus 2 \oplus 3 \oplus 4 = 4 \oplus 3 \oplus 2 \oplus x
   \end{align*}
   We can now write a procedure (\texttt{Mcheck}) that determines whether the terms are equal by flattening each expression into a list and checking whether one list is a permutation of the other.
+
+  \footnotetext{Malecha \& Bengtson, Extensible and Efficient Automation Through Reflective Tactics, 2016.}
 \end{frame}
 
 \begin{frame}\justifying
   \section{Quantifier Elimination}
-  Predicate logic is undecidable in the general case; However, a number of specific theories within predicate logic are in fact decidable. Their decidability is shown through \textit{quantifier elimination}. The idea behind quantifier elimination is to devise a method to transform any given proposition quantified with $\forall$ or $\exists$ into an equivalent one without quantifiers.
+  Predicate logic is undecidable in the general case; However, a number of specific theories within predicate logic are in fact decidable\footnotemark. Their decidability is shown through \textit{quantifier elimination}. The idea behind quantifier elimination is to devise a method to transform any given proposition quantified with $\forall$ or $\exists$ into an equivalent one without quantifiers.
+
+  \footnotetext{\url{https://360wiki.ru/wiki/Quantifier_elimination}}
 \end{frame}
 
 \begin{frame}\justifying
   \frametitle{Theory of Successor on the Natural Numbers}
-  Atomic formulae are equalities between terms, each of which is the application of the successor function $S$ some (known) number of times to either a variable or zero. For example:
+  Atomic formulae are equalities between terms, each of which is the application of the successor function $S$ some (known) number of times to either a variable or zero\footnotemark. For example:
   \begin{align*}
     S(S(S(x))) = S(S(S(S(O))))
   \end{align*}
@@ -238,6 +259,8 @@ Qed.
     S^3(x) = S^4(O).
   \end{align*}
   Valid atomic formulas: $3 + x = 4$, $3 + x = 7 + y$.
+
+  \footnotetext{Pope, Formalizing Constructive Quantifier Elimination in Agda, 2018.}.
 \end{frame}
 
 \begin{frame}
@@ -254,67 +277,13 @@ Qed.
   \end{align*}
 \end{frame}
 
-\begin{frame}[fragile]
-\begin{minted}{coq}
-Inductive base : Set :=
-| Zero : base
-| Var : nat -> base.
-
-Inductive term : Set := Succ : nat -> base -> term.
-\end{minted}
-
-\begin{minted}{coq}
-Definition base2nat (l : list nat) (b : base) : nat :=
-  match b with
-  | Zero => 0
-  | Var n => nth n l 0
-  end.
-
-Definition term2nat (l : list nat) (t : term) : nat :=
-  match t with Succ n b => n + base2nat l b end.
-\end{minted}
-\end{frame}
-
-\begin{frame}[fragile]\justifying
-  \frametitle{Representation of Formulae}
-  A formula is formed from an atom, or from other propositions by way of the typical connectives and quantifiers.
-\begin{minted}{coq}
-Inductive atom : Set := Equal : term -> term -> atom.
-
-Inductive form : Set :=
-| FAlse : form
-| Atom : atom -> form
-| Or : form -> form -> form
-| And : form -> form -> form
-| Imp : form -> form -> form
-| Forall : form -> form
-| Exists : form -> form.
-\end{minted}
-\end{frame}
-
-\begin{frame}[fragile]
-\begin{minted}{coq}
-Definition atom2Prop (l : list nat) (a : atom) :=
-  match a with
-    Equal t1 t2 => term2nat l t1 = term2nat l t2
-  end.
-
-Fixpoint form2Prop (l : list nat) (f : form) : Prop :=
-  match f with
-  | FAlse => False
-  | Atom a => atom2Prop l a
-  | Or a b => form2Prop l a \/ form2Prop l b
-  | And a b => form2Prop l a /\ form2Prop l b
-  | Imp a b => form2Prop l a -> form2Prop l b
-  | Forall a => forall x : nat, form2Prop (x :: l) a
-  | Exists a => exists x : nat, form2Prop (x :: l) a
-  end.
-\end{minted}
-\end{frame}
 \begin{frame}
-  \begin{center}
-    {\Huge Thank you}
-  \end{center}
+  \frametitle{Conclusions}
+  \begin{itemize}\justifying
+  \item First, proof by computational reflection requires terms to be expressed as inductive types.
+  \item Then, we provide methods for interpretation (\textbf{interp}) and reification (\textbf{reify}), which allows us to proof the soundness of reflection.
+  \item We introduce heuristics dealing with type transformations in order to normalize terms.
+  \item Automatic proving by computational reflection finishes by the computation of the equality of normalized terms.
+  \end{itemize}
 \end{frame}
-
 \end{document}
