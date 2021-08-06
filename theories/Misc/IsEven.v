@@ -133,8 +133,8 @@ Proof.
   - reflexivity.
   - cbn. rewrite IHe. remember (interp e) as n.
     clear e IHe Heqn. induction n.
-    * reflexivity.
-    * cbn. apply (f_equal negb) in IHn. rewrite <- IHn. apply negb_involutive.
+    + reflexivity.
+    + cbn. apply (f_equal negb) in IHn. rewrite <- IHn. apply negb_involutive.
   - cbn. rewrite IHe1, IHe2.
     remember (interp e1) as n1. remember (interp e2) as n2.
     symmetry. apply check_is_even_prod.

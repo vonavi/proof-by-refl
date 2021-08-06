@@ -5,7 +5,7 @@
 Require Import Arith.
 Require Import List.
 
-Lemma essai : forall a b c d,
+Lemma trial : forall a b c d,
     (a + b) + (c + d) = a + b + c + d.
 Proof.
   intros. repeat rewrite Nat.add_assoc. reflexivity.
@@ -73,7 +73,7 @@ Proof.
 Qed.
 
 
-Lemma essai_refl : forall a b c d,
+Lemma trial_refl : forall a b c d,
     (a + b) + (c + d) = a + b + c + d.
 Proof.
   intros. matac. apply main. simpl. reflexivity.
